@@ -48,9 +48,14 @@ class DailyAgent:
 
         # Generate response using OpenAI
         self.logger.info("Generating response from OpenAI")
-        response = self.client.chat.completions.create(
-            model=model, messages=filtered_history, tools=self.tools, **kwargs
-        )
+        if self.tools:
+            response = self.client.chat.completions.create(
+                model=model, messages=filtered_history, tools=self.tools, **kwargs
+            )
+        else:
+            response = self.client.chat.completions.create(
+                model=model, messages=filtered_history, **kwargs
+            )
 
         if response_content := response.choices[0].message.content:
             self.logger.debug("Response received from OpenAI - text content")
@@ -71,7 +76,5 @@ class DailyAgent:
             for tool_call in response.choices[0].message.tools_calls:
                 # Call the relevant tool and return the result as a Message object
                 pass
-            
 
         return assistant_message
-
