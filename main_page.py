@@ -87,10 +87,6 @@ def main():
     embedder = EmbeddingGenerator()
 
     st.title("Meddy")
-    if st.button("Disconnetti"):
-        st.session_state.authenticated = False
-        st.session_state.user_id = None
-        st.experimental_rerun()
     SessionManager.initialize_session()
 
     if not st.session_state.authenticated:
@@ -135,7 +131,10 @@ def show_auth_interface(auth):
 def show_chat_interface(chat_manager):
     st.write(f"Benvenuto, {st.session_state.user_id}!")
     chat_manager.initialize_chat()
-
+    if st.button("Disconnetti"):
+        st.session_state.authenticated = False
+        st.session_state.user_id = None
+        st.experimental_rerun()
     session_start = st.session_state.timestamp
     separator_shown = False
 
