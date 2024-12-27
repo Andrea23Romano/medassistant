@@ -60,6 +60,7 @@ class ChatManager:
         self.session_id = session_id
         self.user_id = user_id
         self.messages: List[Message] = []
+        self.extended_conversation: List[Message] = []
 
     def initialize_chat(self) -> None:
         """
@@ -133,7 +134,7 @@ class ChatManager:
             )
             starting_message_content = DEFAULT_STARTING_MESSAGE
 
-        self.messages = (
+        self.extended_conversation = (
             [
                 Message(
                     role="system",
@@ -150,6 +151,18 @@ class ChatManager:
                 )
             ]
         )
+        self.messages = [
+                Message(
+                    role="system",
+                    content=formatted_prompt,
+                    timestamp=datetime.now(),
+                ),
+                Message(
+                    role="assistant",
+                    content=starting_message_content,
+                    timestamp=datetime.now(),
+                )
+            ]
 
     def handle_chat_input(self, prompt: str) -> Optional[Message]:
         """
@@ -168,11 +181,12 @@ class ChatManager:
         logger.info(f"Processing chat input for session: {self.session_id}")
         user_message = Message(role="user", content=prompt, timestamp=datetime.now())
         self.messages.append(user_message)
+        self.extended_conversation.append(user_message)
 
         try:
             agent = DailyAgent()
             preprocessed_chat_history = self.preprocess_chat_history(
-                self.messages, mode=CHAT_HISTORY_MODE
+                self.extended_conversation, mode=CHAT_HISTORY_MODE
             )
             logger.debug(
                 "Preprocessed chat history, {} messages".format(
@@ -183,6 +197,7 @@ class ChatManager:
                 chat_history=preprocessed_chat_history,
             )
             self.messages.append(assistant_message)
+            self.extended_conversation.append(assistant_message)
             logger.debug("Successfully generated assistant response")
 
             self._store_conversation()
