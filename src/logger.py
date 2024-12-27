@@ -26,29 +26,32 @@ class ConfigurableLogger:
         # Set up logger
         self.logger = logging.getLogger(name)
         self.logger.setLevel(getattr(logging, log_level.upper()))
+        self.logger.propagate = False
 
-        # Log formatting
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S",
-        )
+        # Check if handlers already exist
+        if not self.logger.handlers:
+            # Log formatting
+            formatter = logging.Formatter(
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
+            )
 
-        # Console handler
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setFormatter(formatter)
-        self.logger.addHandler(console_handler)
+            # Console handler
+            console_handler = logging.StreamHandler(sys.stdout)
+            console_handler.setFormatter(formatter)
+            self.logger.addHandler(console_handler)
 
-        # Rotating file handler
-        log_file_path = os.path.join(
-            log_dir, f'{name}_{datetime.now().strftime("%Y%m%d")}.log'
-        )
-        file_handler = RotatingFileHandler(
-            log_file_path,
-            maxBytes=10 * 1024 * 1024,  # 10 MB
-            backupCount=5,  # Keep 5 old log files
-        )
-        file_handler.setFormatter(formatter)
-        self.logger.addHandler(file_handler)
+            # Rotating file handler
+            log_file_path = os.path.join(
+                log_dir, f'{name}_{datetime.now().strftime("%Y%m%d")}.log'
+            )
+            file_handler = RotatingFileHandler(
+                log_file_path,
+                maxBytes=10 * 1024 * 1024,  # 10 MB
+                backupCount=5,  # Keep 5 old log files
+            )
+            file_handler.setFormatter(formatter)
+            self.logger.addHandler(file_handler)
 
     def debug(self, message: str, *args, **kwargs):
         """Log a debug message"""

@@ -192,8 +192,12 @@ class MongoManager:
     def check_user(self, user_id: str, password: str) -> bool:
         try:
             result = self.users.find_one({"user_id": user_id, "password": password})
-            self.logger.info(f"User {user_id} authenticated")
-            return len(result) > 0
+            if result:
+                self.logger.info(f"User {user_id} authenticated")
+                return result["name"]
+            else:
+                self.logger.warning(f"Invalid credentials for user {user_id}")
+                return False
         except Exception as e:
             self.logger.error(f"Failed to authenticate user {user_id}: {str(e)}")
             raise
@@ -220,29 +224,69 @@ class MongoManager:
             self.logger.error(f"Failed to get conversation {session_id}: {str(e)}")
             raise
 
-    def get_summaries_by_date_range(
-        self, start_date: date, end_date: date
+    def get_conversations_by_date_range(
+        self, user_id: str, start_date: date, end_date: date
     ) -> List[dict]:
         try:
             start_datetime = datetime.combine(start_date, datetime.min.time())
-            end_datetime = datetime.combine(end_date, datetime.min.time())
+            end_datetime = datetime.combine(end_date, datetime.max.time())
             results = list(
-                self.summaries.find(
-                    {"date": {"$gte": start_datetime, "$lte": end_datetime}}
+                self.conversations.find(
+                    {
+                        "user_id": user_id,
+                        "created_at": {"$gte": start_datetime, "$lte": end_datetime},
+                    }
                 )
             )
             self.logger.info(
-                f"Retrieved {len(results)} summaries between {start_date} and {end_date}"
+                f"Retrieved {len(results)} conversations for user {user_id} between {start_datetime} and {end_datetime}"
+            )
+            return results
+        except Exception as e:
+            self.logger.error(f"Failed to get conversations for date range: {str(e)}")
+            raise
+
+    def get_summaries_by_date_range(
+        self, user_id: str, start_date: date, end_date: date
+    ) -> List[dict]:
+        try:
+            start_datetime = datetime.combine(start_date, datetime.min.time())
+            end_datetime = datetime.combine(end_date, datetime.max.time())
+            results = list(
+                self.summaries.find(
+                    {
+                        "user_id": user_id,
+                        "date": {"$gte": start_datetime, "$lte": end_datetime},
+                    }
+                )
+            )
+            self.logger.info(
+                f"Retrieved {len(results)} summaries for user {user_id} between {start_datetime} and {end_datetime}"
             )
             return results
         except Exception as e:
             self.logger.error(f"Failed to get summaries for date range: {str(e)}")
             raise
-
-    def get_document_by_id(self, document_id: str) -> Optional[dict]:
+    
+    def get_last_summaries_by_user(self, user_id: str, last_n: int = 5) -> List[dict]:
         try:
-            result = self.documents.find_one({"document_id": document_id})
-            self.logger.info(f"Retrieved document: {document_id}")
+            results = list(
+                self.summaries.find({"user_id": user_id}).sort("created_at", -1).limit(last_n)
+            )
+            self.logger.info(
+                f"Retrieved last {len(results)} summaries for user {user_id}"
+            )
+            return results
+        except Exception as e:
+            self.logger.error(f"Failed to get last summaries for user {user_id}: {str(e)}")
+            raise
+        
+    def get_document_by_id(self, user_id: str, document_id: str) -> Optional[dict]:
+        try:
+            result = self.documents.find_one(
+                {"user_id": user_id, "document_id": document_id}
+            )
+            self.logger.info(f"Retrieved document {document_id} for user {user_id}")
             return result
         except Exception as e:
             self.logger.error(f"Failed to get document {document_id}: {str(e)}")
