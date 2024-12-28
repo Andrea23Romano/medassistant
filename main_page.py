@@ -83,24 +83,27 @@ class Authentication:
 
 def main():
     load_dotenv()
-    mongo_manager = MongoManager()
-    embedder = EmbeddingGenerator()
-
     st.title("Meddy")
     SessionManager.initialize_session()
+    if not st.session_state.get("mongo_manager"):
+        st.session_state.mongo_manager = MongoManager()
+    if not st.session_state.get("embedding_generator"):
+        st.session_state.embedding_generator = EmbeddingGenerator()
+    if not st.session_state.get("auth"):
+        st.session_state.auth = Authentication(st.session_state.mongo_manager)
 
     if not st.session_state.authenticated:
-        auth = Authentication(mongo_manager)
-        show_auth_interface(auth)
+        show_auth_interface(st.session_state.auth)
     else:
-        chat_manager = ChatManager(
-            mongo_manager,
-            embedder,
-            st.session_state.name,
-            st.session_state.session_id,
-            st.session_state.user_id,
-        )
-        show_chat_interface(chat_manager)
+        if not st.session_state.get("chat_manager"):
+            st.session_state.chat_manager = ChatManager(
+                st.session_state.mongo_manager,
+                st.session_state.embedding_generator,
+                st.session_state.name,
+                st.session_state.session_id,
+                st.session_state.user_id,
+            )
+        show_chat_interface(st.session_state.chat_manager)
 
 
 def show_auth_interface(auth):
@@ -139,18 +142,19 @@ def show_chat_interface(chat_manager):
     separator_shown = False
 
     for message in chat_manager.messages:
-        if (
-            not separator_shown
-            and message.timestamp > session_start
-            and message.role != "system"
-        ):
-            with st.chat_message("system"):
-                st.markdown("---")  # Horizontal line
-                st.markdown(
-                    f"<div style='text-align: center; color: gray; font-size: 0.8em; margin: -15px 0;'>{session_start.strftime('%H:%M')} - Nuova sessione</div>",
-                    unsafe_allow_html=True,
-                )
-                st.markdown("---")  # Horizontal line
+        # if (
+        #     not separator_shown
+        #     and message.timestamp > session_start
+        #     and message.role != "system"
+        # ):
+        #     with st.chat_message("system"):
+        #         st.markdown("---")  # Horizontal line
+        #         st.markdown(
+        #             f"<div style='text-align: center; color: gray; font-size: 0.8em; margin: -15px 0;'>{session_start.strftime('%H:%M')} - Nuova sessione</div>",
+        #             unsafe_allow_html=True,
+        #         )
+        #         st.markdown("---")  # Horizontal line
+        #         separator_shown = True
 
         if message.role != "system":
             with st.chat_message(message.role):

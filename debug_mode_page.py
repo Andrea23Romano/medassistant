@@ -9,7 +9,7 @@ from src.utils import hash_password
 from src.embedding import EmbeddingGenerator
 from src.chat_manager import ChatManager
 
-logger = get_logger(name=None, log_level="DEBUG")
+logger = get_logger(name=None, log_level="INFO")
 
 DEBUG = True  # Set this to True to enable debug mode
 TEST_USER = "TestUser"
@@ -83,28 +83,27 @@ class Authentication:
 
 def main():
     load_dotenv()
-    mongo_manager = MongoManager()
-    embedder = EmbeddingGenerator()
-
     st.title("Meddy")
-    if st.button("Disconnetti"):
-        st.session_state.authenticated = False
-        st.session_state.user_id = None
-        st.experimental_rerun()
     SessionManager.initialize_session()
+    if not st.session_state.get("mongo_manager"):
+        st.session_state.mongo_manager = MongoManager()
+    if not st.session_state.get("embedding_generator"):
+        st.session_state.embedding_generator = EmbeddingGenerator()
+    if not st.session_state.get("auth"):
+        st.session_state.auth = Authentication(st.session_state.mongo_manager)
 
     if not st.session_state.authenticated:
-        auth = Authentication(mongo_manager)
-        show_auth_interface(auth)
+        show_auth_interface(st.session_state.auth)
     else:
-        chat_manager = ChatManager(
-            mongo_manager,
-            embedder,
-            st.session_state.name,
-            st.session_state.session_id,
-            st.session_state.user_id,
-        )
-        show_chat_interface(chat_manager)
+        if not st.session_state.get("chat_manager"):
+            st.session_state.chat_manager = ChatManager(
+                st.session_state.mongo_manager,
+                st.session_state.embedding_generator,
+                st.session_state.name,
+                st.session_state.session_id,
+                st.session_state.user_id,
+            )
+        show_chat_interface(st.session_state.chat_manager)
 
 
 def show_auth_interface(auth):
@@ -135,7 +134,10 @@ def show_auth_interface(auth):
 def show_chat_interface(chat_manager):
     st.write(f"Benvenuto, {st.session_state.user_id}!")
     chat_manager.initialize_chat()
-
+    if st.button("Disconnetti"):
+        st.session_state.authenticated = False
+        st.session_state.user_id = None
+        st.experimental_rerun()
     session_start = st.session_state.timestamp
     separator_shown = False
 

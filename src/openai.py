@@ -40,14 +40,18 @@ class DailyAgent:
 
         # Filter chat history to include only valid message types
         filtered_history = [
-            {"role": msg.role, "content": f"[{msg.timestamp}]: {msg.content}"}
+            {"role": msg.role, "content": msg.content}
             for msg in chat_history
-            if msg.role in ["system", "assistant", "tool", "user"]
+            if msg.role in ["system", "assistant", "developer", "tool", "user"]
         ]
         self.logger.debug(f"Filtered chat history length: {len(filtered_history)}")
 
         # Generate response using OpenAI
         self.logger.info("Generating response from OpenAI")
+        formatted_history = "\n".join(
+            [f"{msg['role']}: {msg['content']}" for msg in filtered_history]
+        )
+        self.logger.info(f"Chat history: {formatted_history}")
         if self.tools:
             response = self.client.chat.completions.create(
                 model=model, messages=filtered_history, tools=self.tools, **kwargs

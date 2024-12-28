@@ -60,98 +60,87 @@ class ChatManager:
         self.session_id = session_id
         self.user_id = user_id
         self.messages: List[Message] = []
-        self.extended_conversation: List[Message] = []
 
     def initialize_chat(self) -> None:
         """
         Initialize chat by setting up system prompts based on previous interactions.
         Retrieves historical summaries and sets appropriate initial messages.
         """
-        logger.info(f"Initializing chat for session: {self.session_id}")
-        end_date = date.today()
-        summaries_start_date = end_date - timedelta(days=N_PREVIOUS_DAYS)
-        conversation_start_date = datetime.combine(end_date, datetime.min.time())
+        if not self.messages:
+            logger.info(f"Initializing chat for session: {self.session_id}")
+            end_date = date.today()
+            conversation_start_date = datetime.combine(end_date, datetime.min.time())
 
-        summaries: List[Dict[str, Any]] = self.mongo_manager.get_last_summaries_by_user(
-            self.user_id, N_PREVIOUS_DAYS
-        )
-        logger.debug(f"Found {len(summaries)} previous summaries")
-
-        conversations = self.mongo_manager.get_conversations_by_date_range(
-            self.user_id, conversation_start_date, end_date
-        )
-        conversations = [
-            {
-                **conv,
-                "messages": [
-                    msg
-                    for msg in conv.get("messages", [])
-                    if msg["role"] != "system" and msg.get("timestamp")
-                ],
-            }
-            for conv in conversations
-        ]
-        # Add timestamps to message content
-        logger.debug(f"Found {len(conversations)} previous conversations")
-
-        previous_messages = []
-        for conv in conversations:
-            previous_messages.extend(
-                [Message(**msg) for msg in conv.get("messages", [])]
+            # Retrieve summaries and previous sessions
+            summaries: List[Dict[str, Any]] = (
+                self.mongo_manager.get_last_summaries_by_user(
+                    self.user_id, N_PREVIOUS_DAYS
+                )
             )
+            logger.debug(f"Found {len(summaries)} previous summaries")
 
-        if previous_messages:
-            logger.info(
-                f"Adding {len(previous_messages)} previous messages to chat history"
+            conversations = self.mongo_manager.get_conversations_by_date_range(
+                self.user_id, conversation_start_date, end_date
             )
+            conversations = [
+                {
+                    **conv,
+                    "messages": [
+                        msg
+                        for msg in conv.get("messages", [])
+                        if msg["role"] != "system" and msg.get("timestamp")
+                    ],
+                }
+                for conv in conversations
+            ]
+            logger.debug(f"Found {len(conversations)} previous conversations")
 
-        if (len(summaries) == 0) and (len(conversations) == 0):
-            logger.info("First-time user detected, using first-time prompt")
-            formatted_prompt = FIRST_TIME_SYSTEM_PROMPT.format(
-                patient=self.user_name.split(" ")[0],
-                current_time=datetime.now(),
-            )
-            starting_message_content = FIRST_TIME_STARTING_MESSAGE
-        else:
-            logger.info("Returning user detected, using default prompt")
-            if len(summaries) > 0:
-                previous_interactions = "\n".join(
+            # Turn summaries into a summaries string block
+            summaries_block = (
+                "\n".join(
                     [
                         f"Day {s['day'].strftime('%Y-%m-%d')}:\n{s['summary']}"
                         for s in summaries
                     ]
                 )
-            else:
-                previous_interactions = (
-                    "Nessuna interazione ritrovata nei giorni precedenti."
-                )
-
-            formatted_prompt = DEFAULT_SYSTEM_PROMPT.format(
-                patient=self.user_name.split(" ")[0],
-                n=len(summaries),
-                previous_interactions_block=previous_interactions,
-                current_time=datetime.now(),
+                if summaries
+                else "Nessuna interazione ritrovata nei giorni precedenti."
             )
-            starting_message_content = DEFAULT_STARTING_MESSAGE
 
-        self.extended_conversation = (
-            [
-                Message(
-                    role="system",
-                    content=formatted_prompt,
-                    timestamp=datetime.now(),
+            # Turn previous sessions into a previous_sessions string block
+            previous_sessions_block = (
+                "\n".join(
+                    [
+                        f"[{msg['timestamp']}] {msg['role']}: {msg['content']}"
+                        for conv in conversations
+                        for msg in conv["messages"]
+                    ]
                 )
-            ]
-            + previous_messages
-            + [
-                Message(
-                    role="assistant",
-                    content=starting_message_content,
-                    timestamp=datetime.now(),
+                if conversations
+                else "Nessuna sessione precedente trovata."
+            )
+
+            # Format the correct system message
+            if not summaries and not conversations:
+                logger.info("First-time user detected, using first-time prompt")
+                formatted_prompt = FIRST_TIME_SYSTEM_PROMPT.format(
+                    patient=self.user_name.split(" ")[0],
+                    current_time=datetime.now(),
                 )
-            ]
-        )
-        self.messages = [
+                starting_message_content = FIRST_TIME_STARTING_MESSAGE
+            else:
+                logger.info("Returning user detected, using default prompt")
+                formatted_prompt = DEFAULT_SYSTEM_PROMPT.format(
+                    patient=self.user_name.split(" ")[0],
+                    n=N_PREVIOUS_DAYS,
+                    summaries=summaries_block,
+                    previous_sessions=previous_sessions_block,
+                    current_time=datetime.now(),
+                )
+                starting_message_content = DEFAULT_STARTING_MESSAGE
+
+            # Set self.messages
+            self.messages = [
                 Message(
                     role="system",
                     content=formatted_prompt,
@@ -161,7 +150,7 @@ class ChatManager:
                     role="assistant",
                     content=starting_message_content,
                     timestamp=datetime.now(),
-                )
+                ),
             ]
 
     def handle_chat_input(self, prompt: str) -> Optional[Message]:
@@ -181,23 +170,23 @@ class ChatManager:
         logger.info(f"Processing chat input for session: {self.session_id}")
         user_message = Message(role="user", content=prompt, timestamp=datetime.now())
         self.messages.append(user_message)
-        self.extended_conversation.append(user_message)
 
         try:
             agent = DailyAgent()
+            logger.info("Current chat history: {}".format(self.messages))
             preprocessed_chat_history = self.preprocess_chat_history(
-                self.extended_conversation, mode=CHAT_HISTORY_MODE
+                self.messages, mode=CHAT_HISTORY_MODE
             )
-            logger.debug(
+            logger.info(
                 "Preprocessed chat history, {} messages".format(
                     len(preprocessed_chat_history)
                 )
             )
+            logger.info("Current chat history: {}".format(self.messages))
             assistant_message = agent.create(
                 chat_history=preprocessed_chat_history,
             )
             self.messages.append(assistant_message)
-            self.extended_conversation.append(assistant_message)
             logger.debug("Successfully generated assistant response")
 
             self._store_conversation()
@@ -234,7 +223,6 @@ class ChatManager:
         existing_conversation: Optional[Dict[str, Any]] = (
             self.mongo_manager.get_conversation_by_session_id(self.session_id)
         )
-
         if existing_conversation:
             logger.debug("Updating existing conversation")
             conversation.created_at = existing_conversation["created_at"]
@@ -245,15 +233,15 @@ class ChatManager:
             logger.debug("Creating new conversation")
             self.mongo_manager.create_conversation(conversation)
 
+    @staticmethod
     def preprocess_chat_history(
-        self,
         chat_history: List[Message],
         mode: Literal["truncate", "summarize"] = "truncate",
     ) -> List[Message]:
 
         modes = {
-            "summarize": self._summarize_conversation,
-            "truncate": self._truncate_messages,
+            "summarize": ChatManager._summarize_conversation,
+            "truncate": ChatManager._truncate_messages,
         }
 
         mode = "truncate"  # Default mode
@@ -306,7 +294,7 @@ class ChatManager:
     @staticmethod
     def _truncate_messages(messages: List[Message]) -> List[Message]:
         encoding = tiktoken.encoding_for_model("gpt-4o")
-        max_tokens = 8000  # Conservative limit for GPT-4
+        max_tokens = 100000  # Conservative limit for GPT-4
 
         # Always keep system message
         system_message = next((msg for msg in messages if msg.role == "system"), None)
@@ -322,8 +310,8 @@ class ChatManager:
             tokens = len(encoding.encode(msg.content))
             if current_tokens + tokens > max_tokens:
                 break
-        included_messages.insert(0, msg)
-        current_tokens += tokens
+            included_messages.insert(0, msg)
+            current_tokens += tokens
 
         return [system_message] + included_messages
 
@@ -348,7 +336,7 @@ class SummaryManager:
         yesterday = date.today() - timedelta(days=1)
         start_date = datetime.combine(yesterday, datetime.min.time())
         end_date = datetime.combine(yesterday, datetime.max.time())
-        model = model or "o1"
+        model = model or "o1-mini"
 
         # Get all users
         users = [user["user_id"] for user in self.mongo_manager.get_users()]
@@ -371,22 +359,35 @@ class SummaryManager:
                     chat_history.extend(
                         [Message(**msg) for msg in conv.get("messages", [])]
                     )
-
+                logger.info(
+                    f"Found {len(chat_history)} messages for user {user} on {yesterday}"
+                )
+                conv_block = "\n".join(
+                    [
+                        f"[{msg.timestamp}]{msg.role}: {msg.content}"
+                        for msg in chat_history
+                        if msg.role != "system"
+                    ]
+                )
                 # Generate summary using the agent
-
+                logger.info(f"Generating summary for user {user} on {yesterday}")
+                logger.info(f"Conversation block:\n{conv_block}")
                 summary_message = self.agent.create(
-                    ChatManager.preprocess_chat_history(
-                        [Message(role="system", content=summary_prompt)] + chat_history
-                    ),
+                    [
+                        Message(
+                            role="user",
+                            content=summary_prompt.format(conv_block=conv_block),
+                        )
+                    ],
                     model=model,
                 )
 
                 if summary_message:
                     # Store the summary using existing method
-                    self.mongo_manager.create_summary(
+                    summary_id = self.mongo_manager.create_summary(
                         SummaryEntry(
                             user_id=user,
-                            day=yesterday,
+                            day=datetime.combine(yesterday, datetime.min.time()),
                             created_at=datetime.now(),
                             summary=summary_message.content,
                             session_ids=[conv["session_id"] for conv in conversations],
@@ -395,3 +396,8 @@ class SummaryManager:
                             ),
                         )
                     )
+                    logger.info(
+                        f"Created summary for user {user} on {yesterday}: {summary_id}"
+                    )
+                else:
+                    logger.error(f"Failed to generate summary for user {user}")

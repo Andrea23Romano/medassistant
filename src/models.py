@@ -34,7 +34,7 @@ class SummaryEntry(BaseModel):
 
     summary_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     user_id: str
-    day: date = Field(default_factory=date.today)
+    day: datetime = Field(default_factory=datetime.today)
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
     summary: str

@@ -218,8 +218,12 @@ class MongoManager:
     def get_conversation_by_session_id(self, session_id: str) -> Optional[dict]:
         try:
             result = self.conversations.find_one({"session_id": session_id})
-            self.logger.info(f"Retrieved conversation: {session_id}")
-            return result
+            if result:
+                self.logger.info(f"Retrieved conversation: {session_id}")
+                return result
+            else:
+                self.logger.warning(f"Conversation not found: {session_id}")
+                return None
         except Exception as e:
             self.logger.error(f"Failed to get conversation {session_id}: {str(e)}")
             raise
@@ -256,7 +260,7 @@ class MongoManager:
                 self.summaries.find(
                     {
                         "user_id": user_id,
-                        "date": {"$gte": start_datetime, "$lte": end_datetime},
+                        "day": {"$gte": start_datetime, "$lte": end_datetime},
                     }
                 )
             )
@@ -267,20 +271,24 @@ class MongoManager:
         except Exception as e:
             self.logger.error(f"Failed to get summaries for date range: {str(e)}")
             raise
-    
+
     def get_last_summaries_by_user(self, user_id: str, last_n: int = 5) -> List[dict]:
         try:
             results = list(
-                self.summaries.find({"user_id": user_id}).sort("created_at", -1).limit(last_n)
+                self.summaries.find({"user_id": user_id})
+                .sort("created_at", -1)
+                .limit(last_n)
             )
             self.logger.info(
                 f"Retrieved last {len(results)} summaries for user {user_id}"
             )
             return results
         except Exception as e:
-            self.logger.error(f"Failed to get last summaries for user {user_id}: {str(e)}")
+            self.logger.error(
+                f"Failed to get last summaries for user {user_id}: {str(e)}"
+            )
             raise
-        
+
     def get_document_by_id(self, user_id: str, document_id: str) -> Optional[dict]:
         try:
             result = self.documents.find_one(
