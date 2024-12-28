@@ -142,18 +142,19 @@ def show_chat_interface(chat_manager):
     separator_shown = False
 
     for message in chat_manager.messages:
-        if (
-            not separator_shown
-            and message.timestamp > session_start
-            and message.role != "system"
-        ):
-            with st.chat_message("system"):
-                st.markdown("---")  # Horizontal line
-                st.markdown(
-                    f"<div style='text-align: center; color: gray; font-size: 0.8em; margin: -15px 0;'>{session_start.strftime('%H:%M')} - Nuova sessione</div>",
-                    unsafe_allow_html=True,
-                )
-                st.markdown("---")  # Horizontal line
+        # if (
+        #     not separator_shown
+        #     and message.timestamp > session_start
+        #     and message.role != "system"
+        # ):
+        #     with st.chat_message("system"):
+        #         st.markdown("---")  # Horizontal line
+        #         st.markdown(
+        #             f"<div style='text-align: center; color: gray; font-size: 0.8em; margin: -15px 0;'>{session_start.strftime('%H:%M')} - Nuova sessione</div>",
+        #             unsafe_allow_html=True,
+        #         )
+        #         st.markdown("---")  # Horizontal line
+        #         separator_shown = True
 
         if message.role != "system":
             with st.chat_message(message.role):
