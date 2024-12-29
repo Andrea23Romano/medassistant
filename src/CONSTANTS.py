@@ -98,4 +98,4 @@ Esempio di riassunto:
 2024-01-15 09:30: Paziente riferisce dolore moderato (6/10) al ginocchio sinistro, peggiorato rispetto a ieri. Qualità del sonno scarsa (4h totali). Continua terapia con ibuprofene 600mg bid con beneficio parziale. Umore stabile.
 2024-01-15 15:45: Miglioramento del dolore (3/10) dopo riposo. Riferisce lieve nausea post-pranzo. Ansia moderata per visita specialistica imminente.
 
-Assicurati che il riassunto sia completo ma conciso, evidenziando tutti gli elementi clinicamente rilevanti per il monitoraggio longitudinale del paziente."""
+Assicurati che il riassunto sia completo ma conciso, evidenziando tutti gli elementi clinicamente rilevanti per il monitoraggio longitudinale del paziente. Escudi dal riassunto informazioni non pertinenti o ripetitive e i contenuti prodotti da Meddy."""

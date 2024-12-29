@@ -48,10 +48,6 @@ class DailyAgent:
 
         # Generate response using OpenAI
         self.logger.info("Generating response from OpenAI")
-        formatted_history = "\n".join(
-            [f"{msg['role']}: {msg['content']}" for msg in filtered_history]
-        )
-        self.logger.info(f"Chat history: {formatted_history}")
         if self.tools:
             response = self.client.chat.completions.create(
                 model=model, messages=filtered_history, tools=self.tools, **kwargs
