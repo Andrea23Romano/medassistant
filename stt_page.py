@@ -1,10 +1,8 @@
 from transformers import pipeline
-import sounddevice as sd
-import numpy as np
 import streamlit as st
-import time
 import torch
-from scipy.signal import butter, filtfilt
+from audiorecorder import audiorecorder
+import numpy as np
 from src.logger import get_logger
 
 # Set up logger
@@ -12,47 +10,25 @@ logger = get_logger(name=None)
 
 # Audio processing settings
 SAMPLE_RATE = 16000
-NOISE_THRESHOLD = 0.005
 
-# Keep the noise filtering functions unchanged
-def butter_highpass(cutoff, fs, order=5):
-    """Design a highpass filter"""
-    logger.debug(f"Designing highpass filter: cutoff={cutoff}, fs={fs}, order={order}")
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = butter(order, normal_cutoff, btype="highpass", analog=False)
-    return b, a
 
-def apply_noise_filter(audio_data, cutoff=100):
-    """Apply noise filtering to audio data"""
-    logger.debug("Applying noise filter to audio data")
-    b, a = butter_highpass(cutoff, SAMPLE_RATE)
-    filtered_audio = filtfilt(b, a, audio_data)
-    filtered_audio[abs(filtered_audio) < NOISE_THRESHOLD] = 0
-    return filtered_audio
-
-def record_audio(duration=5):
-    """Record audio from microphone with noise filtering"""
-    logger.info(f"Recording audio for {duration} seconds")
-    recording = sd.rec(int(duration * SAMPLE_RATE), samplerate=SAMPLE_RATE, channels=1)
-    sd.wait()
-    audio_data = recording.flatten()
-    filtered_audio = apply_noise_filter(audio_data)
-    return filtered_audio
-
-def transcribe_audio(audio_chunk, pipe):
-    """Transcribe a single audio chunk using pipeline"""
-    logger.debug("Processing audio chunk for transcription")
+def transcribe_audio(audio_segment, pipe):
+    """Transcribe audio using pipeline"""
+    logger.debug("Processing audio for transcription")
     try:
+        # Convert audio segment to numpy array
+        audio_array = np.array(audio_segment.get_array_of_samples())
+
         # Create a dict with the required format for the pipeline
-        audio_dict = {"array": audio_chunk, "sampling_rate": SAMPLE_RATE}
+        audio_dict = {"array": audio_array, "sampling_rate": SAMPLE_RATE}
         result = pipe(audio_dict, batch_size=8, return_timestamps=True)
         transcription = result["chunks"][0]["text"] if result["chunks"] else ""
-        logger.info("Successfully transcribed audio chunk")
+        logger.info("Successfully transcribed audio")
         return transcription
     except Exception as e:
         logger.error(f"Error transcribing audio: {str(e)}", exc_info=True)
         raise
+
 
 def main():
     logger.info("Starting Speech to Text application")
@@ -61,8 +37,6 @@ def main():
     # Initialize session state
     if "transcriptions" not in st.session_state:
         st.session_state.transcriptions = []
-    if "recording" not in st.session_state:
-        st.session_state.recording = False
 
     # Load pipeline
     @st.cache_resource
@@ -84,28 +58,25 @@ def main():
 
     pipe = load_pipeline()
 
-    if st.button("Record" if not st.session_state.recording else "Stop"):
-        st.session_state.recording = not st.session_state.recording
-        logger.info(f"Recording state changed to: {st.session_state.recording}")
+    # Audio recorder
+    audio = audiorecorder(
+        "Start Recording",
+        "Stop Recording",
+        custom_style={"color": "black"},
+        show_visualizer=True,
+    )
 
-    status_placeholder = st.empty()
     transcription_placeholder = st.empty()
 
-    while st.session_state.recording:
-        status_placeholder.markdown("🔴 Recording...")
+    if len(audio) > 0:
+        st.audio(audio.export().read())
 
-        audio_chunk = record_audio(duration=5)
-        text = transcribe_audio(audio_chunk, pipe)
-
-        timestamp = time.strftime("%H:%M:%S")
+        # Process and transcribe the audio
+        text = transcribe_audio(audio, pipe)
         st.session_state.transcriptions.append(f"{text}")
-        logger.debug(f"Added transcription at {timestamp}: {text}")
+        logger.debug(f"Added transcription: {text}")
 
-        transcription_placeholder.markdown("".join(st.session_state.transcriptions))
-        time.sleep(0.1)
-
-    status_placeholder.markdown("⚪ Not Recording")
-
+    # Display all transcriptions
     if st.session_state.transcriptions:
         transcription_placeholder.markdown("".join(st.session_state.transcriptions))
 
@@ -114,4 +85,6 @@ def main():
         st.session_state.transcriptions = []
         transcription_placeholder.empty()
 
-main()
+
+if __name__ == "__main__":
+    main()
