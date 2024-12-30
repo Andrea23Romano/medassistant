@@ -6,20 +6,13 @@ from datetime import datetime
 
 
 class ConfigurableLogger:
-    """
-    Configurable logger with support for file and console logging
-    """
-
     def __init__(
-        self, name: str = "health_agent", log_dir: str = "logs", log_level: str = "INFO"
+        self, 
+        name: str = "health_agent", 
+        log_dir: str = "logs", 
+        log_level: str = "INFO",
+        session_id: str = None
     ):
-        """
-        Initialize a configurable logger with file and console logging
-
-        :param name: Logger name
-        :param log_dir: Directory for log files
-        :param log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        """
         # Create log directory if it doesn't exist
         os.makedirs(log_dir, exist_ok=True)
 
@@ -42,9 +35,8 @@ class ConfigurableLogger:
             self.logger.addHandler(console_handler)
 
             # Rotating file handler
-            log_file_path = os.path.join(
-                log_dir, f'{name}_{datetime.now().strftime("%Y%m%d")}.log'
-            )
+            log_filename = session_id if session_id else f'{name}_{datetime.now().strftime("%Y%m%d")}'
+            log_file_path = os.path.join(log_dir, f'{log_filename}.log')
             file_handler = RotatingFileHandler(
                 log_file_path,
                 maxBytes=10 * 1024 * 1024,  # 10 MB
@@ -79,13 +71,8 @@ class ConfigurableLogger:
 
 
 def get_logger(
-    name: str = "health_agent", log_level: str = "INFO"
+    name: str = "health_agent", 
+    log_level: str = "INFO",
+    session_id: str = None
 ) -> ConfigurableLogger:
-    """
-    Utility function to get a configured logger
-
-    :param name: Logger name
-    :param log_level: Logging level
-    :return: ConfigurableLogger instance
-    """
-    return ConfigurableLogger(name=name, log_level=log_level)
+    return ConfigurableLogger(name=name, log_level=log_level, session_id=session_id)

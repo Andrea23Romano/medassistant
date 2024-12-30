@@ -82,9 +82,8 @@ class Authentication:
 
 
 def main():
-    load_dotenv()
+    
     st.title("Meddy")
-    SessionManager.initialize_session()
     if not st.session_state.get("mongo_manager"):
         st.session_state.mongo_manager = MongoManager()
     if not st.session_state.get("embedding_generator"):
