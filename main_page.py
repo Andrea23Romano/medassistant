@@ -118,16 +118,21 @@ def show_auth_interface(auth):
             auth.login(login_user_id, login_password)
 
     with tab2:
-        st.subheader("Registrati")
-        new_user_id = st.text_input("ID Utente", key="new_user_id")
-        full_name = st.text_input("Nome Completo", key="full_name")
-        email = st.text_input("Email", key="email")
-        new_password = st.text_input("Password", type="password", key="new_password")
-        confirm_password = st.text_input(
-            "Conferma Password", type="password", key="confirm_password"
-        )
-        if st.button("Registrati"):
-            auth.register(new_user_id, full_name, email, new_password, confirm_password)
+        register_modal(auth)
+
+
+# TODO Rename this here and in `show_auth_interface`
+def register_modal(auth):
+    st.subheader("Registrati")
+    new_user_id = st.text_input("ID Utente", key="new_user_id")
+    full_name = st.text_input("Nome Completo", key="full_name")
+    email = st.text_input("Email", key="email")
+    new_password = st.text_input("Password", type="password", key="new_password")
+    confirm_password = st.text_input(
+        "Conferma Password", type="password", key="confirm_password"
+    )
+    if st.button("Registrati"):
+        auth.register(new_user_id, full_name, email, new_password, confirm_password)
 
 
 def show_chat_interface(chat_manager):
