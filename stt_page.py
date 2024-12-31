@@ -86,5 +86,4 @@ def main():
         transcription_placeholder.empty()
 
 
-if __name__ == "__main__":
-    main()
+main()
