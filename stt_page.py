@@ -74,7 +74,7 @@ def main():
         # Process and transcribe the audio
         text = transcribe_audio(audio, pipe)
         st.session_state.transcriptions.append(f"{text}")
-        logger.debug(f"Added transcription: {text}")
+        logger.info(f"Added transcription: {text}")
 
     # Display all transcriptions
     if st.session_state.transcriptions:
